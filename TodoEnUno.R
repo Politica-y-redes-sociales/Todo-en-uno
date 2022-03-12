@@ -1,5 +1,5 @@
 library(readr)
-library(dplyr)#manejo de ficheros
+library(dplyr)
 library(purrr)
 library(tidyr)
 library(stringr)
@@ -9,34 +9,43 @@ library(tidytext)
 library(tm)
 library(colorspace)
 library(sqldf)
+library(openxlsx)
 
 Sys.getlocale()
 Sys.setlocale("LC_ALL", "es_ES.UTF-8")
 pat="(RT|via)(((?:\\b\\W*|)@\\w+)+)|,|:|(https|http)://t.co/[A-Za-z\\d]+|&amp;|http\\w*|@\\w+|(\\w+\\.|)\\w+\\.\\w+(/\\w+)*"
 
 memory.limit(9999999999)
-carpeta<-"/Users/alfonsoopazom/Documents/GitHub/Programas-en-R/Todo en uno"
+carpeta = "C:/Users/Aaron/Desktop/Archivos practica/ProgramasR/TodoEnUno"
 carpeta_Bases<-paste(carpeta,"Bases",sep="/")
 nombres<-dir(carpeta_Bases)
 nombres<-as.data.frame(nombres)
 
-if(dir.exists(paste(carpeta,"Resultados",sep = "/")))
-{}else{dir.create(paste(carpeta,"Resultados",sep = "/"))}
+if(dir.exists(paste(carpeta,"Resultados_csv",sep = "/")))
+{}else{dir.create(paste(carpeta,"Resultados_csv",sep = "/"))}
+
+if(dir.exists(paste(carpeta,"Resultados_excel",sep = "/")))
+{}else{dir.create(paste(carpeta,"Resultados_excel",sep = "/"))}
+
 i=1
-for(i in 2:length(nombres[,1]))
+for(i in 1:length(nombres[,1]))
 {
   archivo_temporal<-paste(carpeta_Bases,toString(nombres$nombres[i]),sep="/")
   nombre<-substr(toString(nombres$nombres[i]),1,(str_length(nombres$nombres[i])-4))
-  nombre_carpeta<-paste(carpeta,"Resultados",sep = "/")
-  nombre_carpeta<-paste(nombre_carpeta,nombre,sep = "/")
+  nombre_carpeta_csv<-paste(carpeta,"Resultados_csv",sep = "/")
+  nombre_carpeta_csv<-paste(nombre_carpeta_csv,nombre,sep = "/")
   
-  if(dir.exists(nombre_carpeta))
-  {}else{dir.create(nombre_carpeta)}
+  nombre_carpeta_excel<-paste(carpeta,"Resultados_excel",sep = "/")
+  nombre_carpeta_excel<-paste(nombre_carpeta_excel,nombre,sep = "/")
+  
+  if(dir.exists(nombre_carpeta_csv))
+  {}else{dir.create(nombre_carpeta_csv)}
+  
+  if(dir.exists(nombre_carpeta_excel))
+  {}else{dir.create(nombre_carpeta_excel)}
   
   consulta <-read.csv(archivo_temporal,header = TRUE,sep = ",",encoding = "UTF-7")
   consulta<-sqldf('SELECT DISTINCT(status_id),* from consulta')
-  write.csv(consulta, file = paste(nombre_carpeta,"Base-Limpia.csv",sep = "/"),row.names=FALSE)
-  
   consulta<-consulta[,-1]
   consulta$text=gsub("<f1>","?",consulta$text)
   consulta$text=gsub("<e1>","?",consulta$text)
@@ -49,6 +58,7 @@ for(i in 2:length(nombres[,1]))
   consulta$text=gsub("<fa>","?",consulta$text)
   
   ###### Muestra ########
+  
   largo<-length(consulta[,1])
   aleatorios <- as.data.frame(sample(1:10000000, largo, replace=TRUE))
   colnames(aleatorios)<-c("numeros")
@@ -57,7 +67,8 @@ for(i in 2:length(nombres[,1]))
   muestra<-sqldf("select created_at,screen_name,text, source from muestra order by numeros")
   muestra<-sqldf("select * from muestra limit(1000)")
   
-  write.csv(muestra, file = paste(nombre_carpeta,"muestra.csv",sep = "/"),row.names=FALSE)
+  write.csv(muestra, file = paste(nombre_carpeta_csv,"muestra.csv",sep = "/"),row.names=FALSE)
+  write.xlsx(muestra, file = paste(nombre_carpeta_excel,"muestra.xlsx",sep = "/"),row.names=FALSE)
   muestra<-""
   aleatorios<-""
   
@@ -65,21 +76,20 @@ for(i in 2:length(nombres[,1]))
   
   influenciadores<-sqldf('select retweet_screen_name USUARIO,count(retweet_screen_name) CANTIDAD from consulta where is_retweet group by retweet_screen_name order by count(retweet_screen_name) desc')
   twiteros<-sqldf('select screen_name,count(screen_name) from consulta where is_retweet=0 group by screen_name order by count(screen_name) desc')
-  write.csv(influenciadores, file = paste(nombre_carpeta,"influenciadores.csv",sep="/"),row.names=FALSE)
-  write.csv(twiteros, file = paste(nombre_carpeta,"twiteros.csv",sep = "/"),row.names=FALSE)
+  write.csv(influenciadores, file = paste(nombre_carpeta_csv,"influenciadores.csv",sep="/"),row.names=FALSE)
+  write.csv(twiteros, file = paste(nombre_carpeta_csv,"twiteros.csv",sep = "/"),row.names=FALSE)
+  write.xlsx(influenciadores, file = paste(nombre_carpeta_excel,"influenciadores.xlsx",sep="/"),row.names=FALSE)
+  write.xlsx(twiteros, file = paste(nombre_carpeta_excel,"twiteros.xlsx",sep = "/"),row.names=FALSE)
   influenciadores<-""
   twiteros<-""
   
+  
   ####### HISTOGRAMA ###########
   
-  histograma <- sqldf("select substr(created_at,1,10) FECHA, count(substr(created_at,1,10)) CANTIDAD 
-                      from consulta 
-                      group by FECHA 
-                      ORDER BY substr(created_at,1,10) 
-                      DESC")
-  write.csv(histograma,file = paste(nombre_carpeta,"1dia.csv",sep = "/"),row.names=FALSE)
+  histograma <- sqldf(' select  substr(created_at,1,10) FECHA,count(substr(created_at,1,10)) CANTIDAD  from consulta group by substr(created_at,1,10) ORDER BY substr(created_at,1,10) DESC')
+  write.csv(histograma,file = paste(nombre_carpeta_csv,"1dia.csv",sep = "/"),row.names=FALSE)
+  write.xlsx(histograma,file = paste(nombre_carpeta_excel,"1dia.xlsx",sep = "/"),row.names=FALSE)
   histograma<-""
-  
   ######## NUBE #############
   conectores<-read.csv(paste(carpeta,"conectores.csv",sep = "/"), header = FALSE)
   consulta<-sqldf("select text from consulta")
@@ -100,14 +110,15 @@ for(i in 2:length(nombres[,1]))
   }
   nube=sqldf(consulta_conectores)
   
-  write.csv(nube, file = paste(nombre_carpeta,"nube.csv",sep = "/"),row.names=FALSE)
+  write.csv(nube, file = paste(nombre_carpeta_csv,"nube.csv",sep = "/"),row.names=FALSE)
+  write.xlsx(nube, file = paste(nombre_carpeta_excel,"nube.xlsx",sep = "/"),row.names=FALSE)
   
   nube<-""
   
   
   # 
   # #######  Bigramma ########
-    consulta=sqldf("select text from consulta")
+  consulta=sqldf("select text from consulta")
   # 
   # lol=consulta %>%
   #   
@@ -125,7 +136,7 @@ for(i in 2:length(nombres[,1]))
   #   ungroup()
   # 
   # ##### GUARDA BIGRAMMA ##########
-
+  
   data_bigrama=consulta %>%
     mutate(text = str_replace_all(text,pat, "")) %>%
     unnest_tokens(word, text, token="ngrams",n=2 ) %>%
@@ -138,7 +149,9 @@ for(i in 2:length(nombres[,1]))
     unite(bigrama, word1, word2, sep = " ") %>%
     mutate(bigrama=reorder(bigrama,n)) %>%
     ungroup()
+  
+  write.csv(data_bigrama, file = paste(nombre_carpeta_csv,"data_bigrama.csv",sep = "/"),row.names=FALSE)
+  write.xlsx(data_bigrama, file = paste(nombre_carpeta_excel,"data_bigrama.xlsx",sep = "/"),row.names=FALSE)
+  
+}
 
-  write.csv(data_bigrama, file = paste(nombre_carpeta,"data_bigrama.csv",sep = "/"),row.names=FALSE)
-
-  }
